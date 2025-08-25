@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Background Removal Tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .section h2 {
+            margin-top: 0;
+            color: #555;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="file"], input[type="text"], select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .image-preview {
+            max-width: 300px;
+            max-height: 300px;
+            margin-top: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .loading {
+            text-align: center;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🖼️ Background Removal Tool</h1>
+        
+        <!-- Upload Image Section -->
+        <div class="section">
+            <h2>Upload Image</h2>
+            <form id="uploadForm">
+                <div class="form-group">
+                    <label for="imageFile">Select Image:</label>
+                    <input type="file" id="imageFile" name="image" accept="image/*" required>
+                </div>
+                <div class="form-group">
+                    <label for="outputFormat">Output Format:</label>
+                    <select id="outputFormat">
+                        <option value="image/png">PNG</option>
+                        <option value="image/jpeg">JPEG</option>
+                        <option value="image/webp">WebP</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="quality">Quality (0.1 - 1.0):</label>
+                    <input type="number" id="quality" min="0.1" max="1.0" step="0.1" value="0.8">
+                </div>
+                <div class="form-group">
+                    <label for="model">Model:</label>
+                    <select id="model">
+                        <option value="medium">Medium (Balanced)</option>
+                        <option value="small">Small (Fast)</option>
+                        <option value="large">Large (High Quality)</option>
+                    </select>
+                </div>
+                <button type="submit" id="uploadBtn">Remove Background</button>
+            </form>
+            <div id="uploadResult"></div>
+        </div>
+
+        <!-- URL Section -->
+        <div class="section">
+            <h2>Remove Background from URL</h2>
+            <form id="urlForm">
+                <div class="form-group">
+                    <label for="imageUrl">Image URL:</label>
+                    <input type="url" id="imageUrl" placeholder="https://example.com/image.jpg" required>
+                </div>
+                <div class="form-group">
+                    <label for="urlOutputFormat">Output Format:</label>
+                    <select id="urlOutputFormat">
+                        <option value="image/png">PNG</option>
+                        <option value="image/jpeg">JPEG</option>
+                        <option value="image/webp">WebP</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="urlQuality">Quality (0.1 - 1.0):</label>
+                    <input type="number" id="urlQuality" min="0.1" max="1.0" step="0.1" value="0.8">
+                </div>
+                <div class="form-group">
+                    <label for="urlModel">Model:</label>
+                    <select id="urlModel">
+                        <option value="medium">Medium (Balanced)</option>
+                        <option value="small">Small (Fast)</option>
+                        <option value="large">Large (High Quality)</option>
+                    </select>
+                </div>
+                <button type="submit" id="urlBtn">Remove Background</button>
+            </form>
+            <div id="urlResult"></div>
+        </div>
+
+        <!-- List Images Section -->
+        <div class="section">
+            <h2>Processed Images</h2>
+            <button id="listBtn">List Processed Images</button>
+            <div id="listResult"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/bg-removal';
+
+        // Upload form handler
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData();
+            const fileInput = document.getElementById('imageFile');
+            const resultDiv = document.getElementById('uploadResult');
+            
+            if (!fileInput.files[0]) {
+                showResult(resultDiv, 'Please select a file', 'error');
+                return;
+            }
+
+            formData.append('image', fileInput.files[0]);
+            formData.append('outputFormat', document.getElementById('outputFormat').value);
+            formData.append('quality', document.getElementById('quality').value);
+            formData.append('model', document.getElementById('model').value);
+
+            const btn = document.getElementById('uploadBtn');
+            btn.disabled = true;
+            btn.textContent = 'Processing...';
+            showResult(resultDiv, 'Processing image...', 'loading');
+
+            try {
+                const response = await fetch(`${API_BASE}/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showResult(resultDiv, 
+                        `Success! Filename: ${result.filename}<br>
+                         <a href="${API_BASE}/images/${result.filename}" target="_blank">View Image</a>`, 
+                        'success'
+                    );
+                } else {
+                    showResult(resultDiv, `Error: ${result.message || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                showResult(resultDiv, `Error: ${error.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Remove Background';
+            }
+        });
+
+        // URL form handler
+        document.getElementById('urlForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const resultDiv = document.getElementById('urlResult');
+            const imageUrl = document.getElementById('imageUrl').value;
+            
+            if (!imageUrl) {
+                showResult(resultDiv, 'Please enter an image URL', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('urlBtn');
+            btn.disabled = true;
+            btn.textContent = 'Processing...';
+            showResult(resultDiv, 'Processing image from URL...', 'loading');
+
+            try {
+                const response = await fetch(`${API_BASE}/url`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        imageUrl: imageUrl,
+                        outputFormat: document.getElementById('urlOutputFormat').value,
+                        quality: parseFloat(document.getElementById('urlQuality').value),
+                        model: document.getElementById('urlModel').value
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showResult(resultDiv, 
+                        `Success! Filename: ${result.filename}<br>
+                         <a href="${API_BASE}/images/${result.filename}" target="_blank">View Image</a>`, 
+                        'success'
+                    );
+                } else {
+                    showResult(resultDiv, `Error: ${result.message || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                showResult(resultDiv, `Error: ${error.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Remove Background';
+            }
+        });
+
+        // List images handler
+        document.getElementById('listBtn').addEventListener('click', async () => {
+            const resultDiv = document.getElementById('listResult');
+            const btn = document.getElementById('listBtn');
+            
+            btn.disabled = true;
+            btn.textContent = 'Loading...';
+            showResult(resultDiv, 'Loading images...', 'loading');
+
+            try {
+                const response = await fetch(`${API_BASE}/images`);
+                const result = await response.json();
+                
+                if (response.ok) {
+                    if (result.images.length === 0) {
+                        showResult(resultDiv, 'No processed images found', 'success');
+                    } else {
+                        const imageList = result.images.map(filename => 
+                            `<div><a href="${API_BASE}/images/${filename}" target="_blank">${filename}</a></div>`
+                        ).join('');
+                        showResult(resultDiv, 
+                            `Found ${result.count} processed images:<br>${imageList}`, 
+                            'success'
+                        );
+                    }
+                } else {
+                    showResult(resultDiv, `Error: ${result.message || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                showResult(resultDiv, `Error: ${error.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'List Processed Images';
+            }
+        });
+
+        function showResult(element, message, type) {
+            element.innerHTML = `<div class="result ${type}">${message}</div>`;
+        }
+    </script>
+</body>
+</html>
